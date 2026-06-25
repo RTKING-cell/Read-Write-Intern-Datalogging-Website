@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intern Card Reader / Writer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="logo" aria-hidden="true">⬡</div>
+      <h1>Intern Card Manager</h1>
+      <p class="subtitle">Read and write names on MIFARE Ultralight cards</p>
+    </header>
+
+    <section class="mode-picker" role="tablist" aria-label="Reader type">
+      <button type="button" class="mode-btn active" id="modeArduino" role="tab" aria-selected="true">
+        Arduino reader
+      </button>
+      <button type="button" class="mode-btn" id="modeNfc" role="tab" aria-selected="false">
+        Phone NFC
+      </button>
+    </section>
+
+    <section class="arduino-panel" id="arduinoPanel">
+      <div class="connection-row">
+        <span class="connection-dot" id="connectionDot" aria-hidden="true"></span>
+        <span class="connection-label" id="connectionLabel">Not connected</span>
+      </div>
+      <button type="button" class="btn btn-connect" id="connectBtn">
+        Connect Arduino
+      </button>
+      <p class="hint">Use Chrome or Edge on desktop. Plug in the Arduino, upload the sketch, then connect.</p>
+    </section>
+
+    <section class="card-preview" aria-live="polite">
+      <p class="card-label">Card contents</p>
+      <p class="card-name" id="cardName">—</p>
+      <p class="card-meta" id="cardMeta">Connect your reader, then tap Read card</p>
+    </section>
+
+    <section class="form">
+      <label for="internName">Intern name</label>
+      <input
+        type="text"
+        id="internName"
+        placeholder="e.g. Alex Johnson"
+        autocomplete="off"
+        maxlength="48"
+      >
+      <p class="hint">Up to 48 characters · stored as plain text on the card</p>
+    </section>
+
+    <div class="actions">
+      <button type="button" class="btn btn-secondary" id="readBtn">
+        <span class="btn-icon" aria-hidden="true">📡</span>
+        Read card
+      </button>
+      <button type="button" class="btn btn-primary" id="writeBtn">
+        <span class="btn-icon" aria-hidden="true">✎</span>
+        Write name
+      </button>
+    </div>
+
+    <div class="status" id="status" role="status"></div>
+
+    <details class="help">
+      <summary>How to use</summary>
+
+      <h3 class="help-heading">Arduino + RC522 reader (recommended on PC)</h3>
+      <ol>
+        <li>Wire the MFRC522 module to your Arduino (SS → pin 10, RST → pin 9, 3.3V power).</li>
+        <li>Install the <strong>MFRC522</strong> library in Arduino IDE, then upload <code>arduino/intern_rfid_reader/intern_rfid_reader.ino</code>.</li>
+        <li>Open this page in <strong>Chrome or Edge</strong> at <code>localhost</code>.</li>
+        <li>Click <strong>Connect Arduino</strong>, pick the serial port, then use Read / Write with a card on the reader.</li>
+      </ol>
+
+      <h3 class="help-heading">Phone NFC (Android)</h3>
+      <ol>
+        <li>Switch to the <strong>Phone NFC</strong> tab.</li>
+        <li>Open this page in <strong>Chrome on Android</strong> over HTTPS or localhost.</li>
+        <li>Tap Read or Write, then hold the card near the phone.</li>
+      </ol>
+    </details>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

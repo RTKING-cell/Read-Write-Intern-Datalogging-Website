@@ -1,0 +1,9 @@
+{
+  "name": "intern-card-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read and write intern names on MIFARE Ultralight NFC cards",
+  "scripts": {
+    "start": "npx --yes serve -l 3000"
+  }
+}
