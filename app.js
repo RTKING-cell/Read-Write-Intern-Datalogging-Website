@@ -7,6 +7,7 @@ const statusEl = document.getElementById("status");
 const modeArduinoBtn = document.getElementById("modeArduino");
 const modeNfcBtn = document.getElementById("modeNfc");
 const arduinoPanel = document.getElementById("arduinoPanel");
+const nfcPanel = document.getElementById("nfcPanel");
 const connectBtn = document.getElementById("connectBtn");
 const connectionDot = document.getElementById("connectionDot");
 const connectionLabel = document.getElementById("connectionLabel");
@@ -116,6 +117,7 @@ function setMode(nextMode) {
   modeArduinoBtn.setAttribute("aria-selected", String(isArduino));
   modeNfcBtn.setAttribute("aria-selected", String(!isArduino));
   arduinoPanel.hidden = !isArduino;
+  nfcPanel.hidden = isArduino;
 
   if (isArduino) {
     cardMetaEl.textContent = serialPort
