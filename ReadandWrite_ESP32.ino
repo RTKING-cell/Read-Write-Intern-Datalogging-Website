@@ -1,130 +1,150 @@
-/*
-===========================================================
-Intern RFID Reader / Writer for ESP32
-Compatible with:
-- Read-Write-Intern-Datalogging-Website
-- Web Serial (Chrome/Edge)
-- MFRC522
-- MIFARE Ultralight
-
-Serial Protocol
-
-PC -> ESP32
--------------
-READ
-WRITE|John Smith
-
-ESP32 -> PC
--------------
-READY
-OK|04AABBCC|John Smith
-ERR|No card detected
-
-ESP32 Wiring
-
-RC522      ESP32
--------------------------
-SDA (SS) -> GPIO5
-SCK      -> GPIO18
-MOSI     -> GPIO23
-MISO     -> GPIO19
-RST      -> GPIO22
-3.3V     -> 3.3V
-GND      -> GND
-===========================================================
-*/
-
+#include <Arduino.h>
 #include <SPI.h>
 #include <MFRC522.h>
 
-#define SS_PIN   5
+#define SS_PIN 5
 #define RST_PIN 22
+#define SCK_PIN 18
+#define MISO_PIN 19
+#define MOSI_PIN 23
 
-#define FIRST_PAGE 4
-#define LAST_PAGE 15
+#define NAME_START_PAGE 4
+#define NAME_MAX_LEN 48
+#define NAME_MAX_BYTES (NAME_MAX_LEN + 1)
 
-MFRC522 mfrc522(SS_PIN, RST_PIN);
+MFRC522 rfid(SS_PIN, RST_PIN);
+String inputLine;
 
-String serialBuffer = "";
+void sendOk(const String& uid, const String& name) {
+  Serial.print("OK|");
+  Serial.print(uid);
+  Serial.print("|");
+  Serial.println(name);
+}
 
-const uint8_t writablePages = LAST_PAGE - FIRST_PAGE + 1;
-const uint16_t writableBytes = writablePages * 4;
+void sendErr(const String& msg) {
+  Serial.print("ERR|");
+  Serial.println(msg);
+}
 
-bool cardPresent = false;
-String uidToString(MFRC522::Uid *uid)
-{
-    String result = "";
+String uidHex() {
+  String out;
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) out += "0";
+    out += String(rfid.uid.uidByte[i], HEX);
+  }
+  out.toUpperCase();
+  return out;
+}
 
-    for (byte i = 0; i < uid->size; i++)
-    {
-        if (uid->uidByte[i] < 0x10)
-            result += "0";
+bool getCard(String& uid) {
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) return false;
+  uid = uidHex();
+  return true;
+}
 
-        result += String(uid->uidByte[i], HEX);
+bool readPage(byte page, byte* buffer) {
+  byte size = 18;
+  return rfid.MIFARE_Read(page, buffer, &size) == MFRC522::STATUS_OK;
+}
+
+bool writePage(byte page, byte block[4]) {
+  return rfid.MIFARE_Write(page, block, 4) == MFRC522::STATUS_OK;
+}
+
+void finishCard() {
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+}
+
+void readName() {
+  String uid;
+  if (!getCard(uid)) return sendErr("No card detected. Place a card on the reader.");
+
+  byte buf[18];
+  if (!readPage(NAME_START_PAGE, buf)) {
+    finishCard();
+    return sendErr("Failed to read card memory.");
+  }
+
+  byte len = min(buf[0], (byte)NAME_MAX_LEN);
+  String name;
+  byte got = 0, offset = 1, page = NAME_START_PAGE;
+
+  while (got < len) {
+    while (offset < 4 && got < len) {
+      name += (char)buf[offset++];
+      got++;
     }
-
-    result.toUpperCase();
-
-    return result;
-}
-
-void flushCard()
-{
-    mfrc522.PICC_HaltA();
-    mfrc522.PCD_StopCrypto1();
-}
-
-bool waitForCard(unsigned long timeout = 15000)
-{
-    unsigned long start = millis();
-
-    while (millis() - start < timeout)
-    {
-        if (mfrc522.PICC_IsNewCardPresent())
-        {
-            if (mfrc522.PICC_ReadCardSerial())
-            {
-                return true;
-            }
-        }
-
-        delay(20);
+    if (got >= len) break;
+    page++;
+    offset = 0;
+    if (!readPage(page, buf)) {
+      finishCard();
+      return sendErr("Failed to read card memory.");
     }
+  }
 
-    return false;
+  finishCard();
+  sendOk(uid, name);
 }
 
-void setup()
-{
-    Serial.begin(115200);
+void writeName(String name) {
+  name.trim();
+  if (!name.length()) return sendErr("Name is empty.");
+  if (name.length() > NAME_MAX_LEN) return sendErr("Name is too long (max 48 characters).");
 
-    SPI.begin(18, 19, 23, SS_PIN);
+  String uid;
+  if (!getCard(uid)) return sendErr("No card detected. Place a card on the reader.");
 
-    mfrc522.PCD_Init();
+  byte data[NAME_MAX_BYTES] = {0};
+  byte len = name.length();
+  data[0] = len;
 
-    delay(100);
+  for (byte i = 0; i < len; i++) data[i + 1] = (byte)name.charAt(i);
 
-    Serial.println("READY");
-}
-
-void loop()
-{
-    while (Serial.available())
-    {
-        char c = Serial.read();
-
-        if (c == '\n')
-        {
-            serialBuffer.trim();
-
-            if (serialBuffer.length())
-                processCommand(serialBuffer);
-
-            serialBuffer = "";
-        }
-        else
-        {
-            serialBuffer += c;
-        }
+  byte pages = (len + 1 + 3) / 4;
+  for (byte p = 0; p < pages; p++) {
+    byte block[4] = {0, 0, 0, 0};
+    for (byte i = 0; i < 4; i++) {
+      byte index = p * 4 + i;
+      if (index < len + 1) block[i] = data[index];
     }
+    if (!writePage(NAME_START_PAGE + p, block)) {
+      finishCard();
+      return sendErr("Failed to write card memory.");
+    }
+  }
+
+  finishCard();
+  sendOk(uid, name);
+}
+
+void handleCommand(String line) {
+  line.trim();
+  if (line == "READ") return readName();
+  if (line.startsWith("WRITE|")) return writeName(line.substring(6));
+  sendErr("Unknown command.");
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
+  rfid.PCD_Init();
+
+  Serial.println("READY");
+}
+
+void loop() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') {
+      if (inputLine.length()) handleCommand(inputLine);
+      inputLine = "";
+    } else if (c != '\r') {
+      inputLine += c;
+    }
+  }
 }
