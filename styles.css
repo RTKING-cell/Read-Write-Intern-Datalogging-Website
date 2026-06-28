@@ -123,6 +123,24 @@ h1 {
   display: none;
 }
 
+.nfc-panel {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.nfc-panel[hidden] {
+  display: none;
+}
+
+.nfc-notice {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .connection-row {
   display: flex;
   align-items: center;
